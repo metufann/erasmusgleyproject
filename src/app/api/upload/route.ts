@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         caption: caption || null,
         author_name: authorName || null,
         story: story || null,
-        approved: process.env.AUTO_APPROVE === 'true'
+        approved: true // Auto-approve all submissions
       })
 
     if (dbError) {
