@@ -284,15 +284,12 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
         <div className="text-center mb-6">
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-rose-200 p-6 max-w-md mx-auto">
             <h3 className="text-lg font-semibold text-rose-700 mb-3">Want to contribute?</h3>
-            <p className="text-rose-600 text-sm mb-4">
-              Share your photos and stories from {country.name} with the community.
-            </p>
             
             <button
               onClick={() => setUploadModalOpen(true)}
               className="w-full bg-gradient-to-r from-rose-500 to-orange-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-rose-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              📸 Add Content
+              📸 Add Activity
             </button>
           </div>
         </div>
@@ -324,7 +321,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
             {/* Header */}
             <div className="text-center mb-8">
               <h3 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent mb-2">
-                📸 Upload Your Photo
+                📸 Upload Your Activity
               </h3>
               <div className="w-20 h-1 bg-gradient-to-r from-rose-400 to-orange-400 mx-auto rounded-full"></div>
             </div>
@@ -345,7 +342,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                   <label htmlFor="image" className="cursor-pointer">
                     <div className="text-6xl mb-4">📁</div>
                     <p className="text-rose-600 font-medium text-lg mb-2">
-                      {uploadForm.image ? uploadForm.image.name : 'Click to select photo'}
+                      {uploadForm.image ? uploadForm.image.name : 'Click to select image'}
                     </p>
                     {uploadForm.image && (
                       <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3">
@@ -374,41 +371,41 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-rose-700 mb-2">
-                    Your Name
+                    Learning Objectives
                   </label>
                   <input
                     type="text"
                     value={uploadForm.authorName}
                     onChange={(e) => setUploadForm(prev => ({ ...prev, authorName: e.target.value }))}
                     className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Your name..."
+                    placeholder="Enter learning objectives..."
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-rose-700 mb-2">
-                    Photo Caption
+                    Activity Name
                   </label>
                   <input
                     type="text"
                     value={uploadForm.caption}
                     onChange={(e) => setUploadForm(prev => ({ ...prev, caption: e.target.value }))}
                     className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Brief description..."
+                    placeholder="Enter activity name..."
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-rose-700 mb-2">
-                  Photo Story
+                  Activity Details
                 </label>
                 <textarea
                   value={uploadForm.story || ''}
                   onChange={(e) => setUploadForm(prev => ({ ...prev, story: e.target.value }))}
                   rows={4}
                   className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300 resize-none"
-                  placeholder="Tell us the story behind this photo..."
+                  placeholder="Describe the activity details..."
                 />
               </div>
 
@@ -451,7 +448,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                   disabled={isUploading || !uploadForm.image || !uploadForm.accessCode}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-medium hover:from-rose-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
-                  {isUploading ? '📤 Uploading...' : '📤 Upload Photo'}
+                  {isUploading ? '📤 Uploading...' : '📤 Upload Activity'}
                 </button>
               </div>
             </form>
