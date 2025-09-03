@@ -289,7 +289,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
               onClick={() => setUploadModalOpen(true)}
               className="w-full bg-gradient-to-r from-rose-500 to-orange-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-rose-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              📸 Add Activity
+              📸 Add Content
             </button>
           </div>
         </div>
