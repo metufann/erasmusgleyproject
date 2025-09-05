@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Country, Submission } from '@/lib/supabase'
-import PhotoAlbum from 'react-photo-album'
+// import PhotoAlbum from 'react-photo-album'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { Fullscreen, Zoom, Download } from 'yet-another-react-lightbox/plugins'
@@ -18,13 +18,23 @@ interface SubmissionWithUrl extends Submission {
   original_height?: number
 }
 
+interface GalleryGroup {
+  groupKey: string
+  caption: string | null
+  author_name: string | null
+  story: string | null
+  created_at: string
+  images: SubmissionWithUrl[]
+}
+
 export default function CountryPageClient({ country }: CountryPageClientProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [submissions, setSubmissions] = useState<SubmissionWithUrl[]>([])
+  const [groups, setGroups] = useState<GalleryGroup[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [uploadForm, setUploadForm] = useState({
-    image: null as File | null,
+    image: null as File | null, // first selected file for preview/meta
+    images: [] as File[],
     caption: '',
     authorName: '',
     story: '',
@@ -32,8 +42,8 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
     imageHeight: 0,
     accessCode: ''
   })
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState(0)
+  // const [lightboxOpen, setLightboxOpen] = useState(false)
+  // const [lightboxIndex, setLightboxIndex] = useState(0)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [submissionToDelete, setSubmissionToDelete] = useState<number | null>(null)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
@@ -45,10 +55,10 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       const data = await response.json()
       
       if (data.success) {
-        setSubmissions(data.submissions)
+        setGroups(data.groups)
       }
-    } catch (err) {
-      console.error('Failed to fetch gallery:', err)
+    } catch {
+      console.error('Failed to fetch gallery')
     }
   }, [country.id])
 
@@ -59,14 +69,18 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
 
   const handleImageUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!uploadForm.image || !uploadForm.accessCode) return
+    if ((uploadForm.images.length === 0 && !uploadForm.image) || !uploadForm.accessCode) return
 
     setIsUploading(true)
     setError('')
 
     try {
       const formData = new FormData()
-      formData.append('image', uploadForm.image)
+      if (uploadForm.images.length > 0) {
+        uploadForm.images.forEach(file => formData.append('images', file))
+      } else if (uploadForm.image) {
+        formData.append('image', uploadForm.image)
+      }
       formData.append('caption', uploadForm.caption)
       formData.append('authorName', uploadForm.authorName)
       formData.append('story', uploadForm.story)
@@ -81,7 +95,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       const data = await response.json()
 
       if (data.success) {
-        setUploadForm({ image: null, caption: '', authorName: '', story: '', imageWidth: 0, imageHeight: 0, accessCode: '' })
+        setUploadForm({ image: null, images: [], caption: '', authorName: '', story: '', imageWidth: 0, imageHeight: 0, accessCode: '' })
         fetchGallery() // Refresh gallery
         setError('')
         setUploadModalOpen(false) // Close modal on success
@@ -96,19 +110,22 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Get image dimensions
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      const first = files[0]
       const img = new Image()
       img.onload = () => {
-        setUploadForm(prev => ({ 
-          ...prev, 
-          image: file,
+        setUploadForm(prev => ({
+          ...prev,
+          image: first,
+          images: files,
           imageWidth: img.width,
           imageHeight: img.height
         }))
       }
-      img.src = URL.createObjectURL(file)
+      img.src = URL.createObjectURL(first)
+    } else {
+      setUploadForm(prev => ({ ...prev, image: null, images: [], imageWidth: 0, imageHeight: 0 }))
     }
   }
 
@@ -118,23 +135,43 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
   }
 
   const confirmDelete = async () => {
-    if (!submissionToDelete || !adminDeleteCode) return
+    if (!adminDeleteCode) return
+
+    // Determine if we're deleting a whole group
+    const payload: { adminDeleteCode: string; submissionId?: number; groupKey?: string } = { adminDeleteCode }
+    if (submissionToDelete) {
+      // Find the group's key for this submission
+      const group = groups.find(g => g.images.some(img => img.id === submissionToDelete))
+      if (group) {
+        payload.groupKey = group.groupKey
+      } else {
+        payload.submissionId = submissionToDelete
+      }
+    }
 
     try {
       const response = await fetch('/api/delete-submission', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          submissionId: submissionToDelete, 
-          adminDeleteCode: adminDeleteCode
-        })
+        body: JSON.stringify(payload)
       })
 
       const data = await response.json()
 
       if (data.success) {
-        // Remove from local state
-        setSubmissions(prev => prev.filter(s => s.id !== submissionToDelete))
+        if (payload.groupKey) {
+          // Remove entire group
+          setGroups(prev => prev.filter(g => g.groupKey !== payload.groupKey))
+        } else if (submissionToDelete) {
+          // Fallback: remove single image
+          setGroups(prev => prev
+            .map(group => ({
+              ...group,
+              images: group.images.filter(img => img.id !== submissionToDelete)
+            }))
+            .filter(group => group.images.length > 0)
+          )
+        }
         setError('')
         setDeleteConfirmOpen(false)
         setSubmissionToDelete(null)
@@ -142,25 +179,15 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       } else {
         setError(data.error || 'Failed to delete submission')
       }
-    } catch (err) {
+    } catch {
       setError('Failed to delete submission')
     }
   }
 
-  const photos = submissions.map((submission) => ({
-    src: submission.publicUrl,
-    width: 800,
-    height: 600,
-    alt: submission.caption || 'Photo',
-    submission
-  }))
-
-  const slides = submissions.map(submission => ({
-    src: submission.publicUrl,
-    alt: submission.caption || 'Photo',
-    title: submission.caption,
-    description: submission.author_name ? `By ${submission.author_name}` : undefined
-  }))
+  // Lightbox state per group
+  const [groupLightboxOpen, setGroupLightboxOpen] = useState(false)
+  const [activeGroupIndex, setActiveGroupIndex] = useState<number>(0)
+  const [activeImageIndex, setActiveImageIndex] = useState<number>(0)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-amber-100 relative">
@@ -201,14 +228,14 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
           </p>
         </div>
 
-        {/* Gallery - New Slider Layout */}
+        {/* Gallery - Grouped Posts (album style) */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-amber-200 p-4 sm:p-6 mb-6 sm:mb-8 shadow-xl sm:shadow-2xl">
           <h2 className="text-xl font-bold text-amber-800 mb-4 flex items-center">
             <span className="text-2xl mr-2">🖼️</span>
-            Photo Gallery ({submissions.length} photos)
+            Photo Gallery ({groups.reduce((sum, g) => sum + g.images.length, 0)} photos, {groups.length} posts)
           </h2>
           
-          {submissions.length === 0 ? (
+          {groups.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-500 text-6xl mb-4">📸</div>
               <p className="text-gray-400 text-lg mb-2">No photos uploaded yet.</p>
@@ -216,60 +243,57 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
-              {submissions.map((submission, index) => (
-                <div key={submission.id} className="bg-white/90 rounded-xl p-4 sm:p-6 border border-amber-200 hover:border-amber-300 transition-all duration-300 shadow-lg max-w-4xl mx-auto">
-                  {/* Photo - Responsive Size with Info */}
-                  <div className="mb-4 relative">
-                    <img
-                      src={submission.publicUrl}
-                      alt={submission.caption || 'Photo'}
-                      className="w-full max-w-2xl mx-auto h-auto max-h-96 object-contain rounded-lg shadow-xl cursor-pointer hover:scale-[1.02] transition-transform duration-300"
-                      onClick={() => {
-                        setLightboxIndex(index)
-                        setLightboxOpen(true)
-                      }}
-                    />
-                    
-                    {/* Photo Info Overlay */}
-                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-rose-700 font-medium border border-rose-200">
-                      <div>📏 {submission.image_path ? submission.image_path.split('.').pop()?.toUpperCase() : 'JPG'}</div>
-                      <div className="text-rose-600 mt-1">
-                        {submission.original_width && submission.original_height ? 
-                          `${submission.original_width} × ${submission.original_height}` : 
-                          'Original size'
-                        }
+              {groups.map((group, gIndex) => (
+                <div key={group.groupKey} className="bg-white/90 rounded-xl p-4 sm:p-6 border border-amber-200 hover:border-amber-300 transition-all duration-300 shadow-lg max-w-4xl mx-auto">
+                  {/* Multi-image carousel grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                    {group.images.map((img, iIndex) => (
+                      <div key={img.id} className="relative">
+                        <img
+                          src={img.publicUrl}
+                          alt={group.caption || 'Photo'}
+                          className="w-full h-40 object-cover rounded-lg shadow cursor-pointer hover:opacity-90"
+                          onClick={() => {
+                            setActiveGroupIndex(gIndex)
+                            setActiveImageIndex(iIndex)
+                            setGroupLightboxOpen(true)
+                          }}
+                        />
+                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded px-2 py-1 text-[10px] text-rose-700 border border-rose-200">
+                          {img.image_path.split('.').pop()?.toUpperCase()}
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                  
-                  {/* Short Caption - Better Colors */}
+
+                  {/* Caption */}
                   <div className="mb-3">
                     <h3 className="text-lg font-semibold text-rose-700 bg-rose-100 px-4 py-2 rounded-xl inline-block border border-rose-200 shadow-sm max-w-full break-words">
-                      {submission.caption || 'Untitled Photo'}
+                      {group.caption || 'Untitled Activity'}
                     </h3>
                   </div>
-                  
-                  {/* Long Story - Full Content */}
+
+                  {/* Story */}
                   <div className="mb-3">
                     <p className="text-rose-800 leading-relaxed text-base bg-white/60 p-4 rounded-xl border border-rose-100 break-words overflow-hidden">
-                      {submission.story || 
-                        `This captivating image captures the essence of ${country.name}. ${submission.caption || 'The photographer has beautifully documented a moment that tells a unique story about this remarkable place.'} Every photograph has a story, and this one invites us to explore the rich tapestry of experiences that make this country special. Through the lens of the photographer, we can see the beauty, culture, and human connection that defines ${country.name}.`
-                      }
+                      {group.story || `This activity showcases moments from ${country.name}.`}
                     </p>
                   </div>
-                  
-                  {/* Author Info & Delete Button */}
+
+                  {/* Meta + Delete */}
                   <div className="flex items-center justify-between text-sm bg-white/60 p-3 rounded-xl border border-rose-100">
                     <div className="flex items-center space-x-4">
-                      <span className="text-rose-700 font-medium">📸 By: {submission.author_name || 'Anonymous'}</span>
-                      <span className="text-rose-600">📅 {new Date(submission.created_at).toLocaleDateString()}</span>
+                      <span className="text-rose-700 font-medium">📸 By: {group.author_name || 'Anonymous'}</span>
+                      <span className="text-rose-600">📅 {new Date(group.created_at).toLocaleDateString()}</span>
                     </div>
-                    
-                    {/* Delete Button - Only show for authenticated users */}
                     <button
-                      onClick={() => handleDeleteSubmission(submission.id)}
+                      onClick={() => {
+                        // delete the first image's submission as representative (or adapt to delete all in group)
+                        const firstId = group.images[0]?.id
+                        if (firstId) handleDeleteSubmission(firstId)
+                      }}
                       className="text-red-500 hover:text-red-600 transition-colors duration-200 px-3 py-1 rounded-lg hover:bg-red-100 border border-red-200"
-                      title="Delete this photo"
+                      title="Delete this post"
                     >
                       🗑️ Delete
                     </button>
@@ -302,17 +326,22 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
         </div>
       </div>
 
-      {/* Lightbox */}
-      <Lightbox
-        open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
-        index={lightboxIndex}
-        slides={slides}
-        plugins={[Fullscreen, Zoom, Download]}
-        carousel={{
-          finite: true
-        }}
-      />
+      {/* Group Lightbox */}
+      {groupLightboxOpen && groups[activeGroupIndex] && (
+        <Lightbox
+          open={groupLightboxOpen}
+          close={() => setGroupLightboxOpen(false)}
+          index={activeImageIndex}
+          slides={groups[activeGroupIndex].images.map(img => ({
+            src: img.publicUrl,
+            alt: groups[activeGroupIndex].caption || 'Photo',
+            title: groups[activeGroupIndex].caption || undefined,
+            description: groups[activeGroupIndex].author_name ? `By ${groups[activeGroupIndex].author_name}` : undefined
+          }))}
+          plugins={[Fullscreen, Zoom, Download]}
+          carousel={{ finite: true }}
+        />
+      )}
 
       {/* Upload Modal */}
       {uploadModalOpen && (
@@ -335,6 +364,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                     type="file"
                     id="image"
                     accept="image/jpeg,image/jpg,image/png,image/webp"
+                    multiple
                     onChange={handleFileChange}
                     className="hidden"
                     required
@@ -342,7 +372,9 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                   <label htmlFor="image" className="cursor-pointer">
                     <div className="text-6xl mb-4">📁</div>
                     <p className="text-rose-600 font-medium text-lg mb-2">
-                      {uploadForm.image ? uploadForm.image.name : 'Click to select image'}
+                      {uploadForm.images.length > 0
+                        ? `${uploadForm.images.length} file${uploadForm.images.length > 1 ? 's' : ''} selected`
+                        : 'Click to select images'}
                     </p>
                     {uploadForm.image && (
                       <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3">
@@ -358,10 +390,15 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                             'Loading...'
                           }
                         </p>
+                        {uploadForm.images.length > 1 && (
+                          <p className="text-rose-500 text-xs mt-1">
+                            Plus {uploadForm.images.length - 1} more file(s)
+                          </p>
+                        )}
                       </div>
                     )}
                     <p className="text-rose-400 text-sm">
-                      JPG, PNG, WebP up to 5MB
+                      JPG, PNG, WebP up to 5MB each
                     </p>
                   </label>
                 </div>
@@ -445,7 +482,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading || !uploadForm.image || !uploadForm.accessCode}
+                  disabled={isUploading || (!uploadForm.image && uploadForm.images.length === 0) || !uploadForm.accessCode}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-medium hover:from-rose-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   {isUploading ? '📤 Uploading...' : '📤 Upload Activity'}

@@ -4,11 +4,11 @@ import { createHash } from 'crypto'
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { submissionId, adminDeleteCode } = await request.json()
+    const { submissionId, groupKey, adminDeleteCode } = await request.json()
 
-    if (!submissionId || !adminDeleteCode) {
+    if ((!submissionId && !groupKey) || !adminDeleteCode) {
       return NextResponse.json(
-        { error: 'Submission ID and admin delete code are required' },
+        { error: 'Submission ID or groupKey and admin delete code are required' },
         { status: 400 }
       )
     }
@@ -27,50 +27,85 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Get submission details
-    const { data: submission, error: fetchError } = await supabaseAdmin
-      .from('submissions')
-      .select('*')
-      .eq('id', submissionId)
-      .single()
+    if (groupKey) {
+      // Delete entire group by prefix: <countryId>/<batchId>/
+      const prefix = `${groupKey}/`
 
-    if (fetchError || !submission) {
-      return NextResponse.json(
-        { error: 'Submission not found' },
-        { status: 404 }
-      )
-    }
-
-    // Delete from storage first
-    if (submission.image_path) {
-      const { error: storageError } = await supabaseAdmin.storage
+      const { data: rows, error: listError } = await supabaseAdmin
         .from('submissions')
-        .remove([submission.image_path])
+        .select('id, image_path')
+        .like('image_path', `${prefix}%`)
 
-      if (storageError) {
-        console.error('Storage deletion error:', storageError)
-        // Continue with database deletion even if storage fails
+      if (listError) {
+        return NextResponse.json(
+          { error: 'Failed to find group submissions' },
+          { status: 500 }
+        )
       }
+
+      const paths = (rows || []).map(r => r.image_path).filter(Boolean)
+      if (paths.length > 0) {
+        const { error: storageError } = await supabaseAdmin.storage
+          .from('submissions')
+          .remove(paths)
+        if (storageError) {
+          console.error('Storage deletion error:', storageError)
+        }
+      }
+
+      const { error: dbError } = await supabaseAdmin
+        .from('submissions')
+        .delete()
+        .like('image_path', `${prefix}%`)
+
+      if (dbError) {
+        console.error('Database deletion error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to delete group' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ success: true, message: 'Post deleted successfully' })
+    } else {
+      // Single submission delete fallback
+      const { data: submission, error: fetchError } = await supabaseAdmin
+        .from('submissions')
+        .select('*')
+        .eq('id', submissionId)
+        .single()
+
+      if (fetchError || !submission) {
+        return NextResponse.json(
+          { error: 'Submission not found' },
+          { status: 404 }
+        )
+      }
+
+      if (submission.image_path) {
+        const { error: storageError } = await supabaseAdmin.storage
+          .from('submissions')
+          .remove([submission.image_path])
+        if (storageError) {
+          console.error('Storage deletion error:', storageError)
+        }
+      }
+
+      const { error: dbError } = await supabaseAdmin
+        .from('submissions')
+        .delete()
+        .eq('id', submissionId)
+
+      if (dbError) {
+        console.error('Database deletion error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to delete submission' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ success: true, message: 'Submission deleted successfully' })
     }
-
-    // Delete from database
-    const { error: dbError } = await supabaseAdmin
-      .from('submissions')
-      .delete()
-      .eq('id', submissionId)
-
-    if (dbError) {
-      console.error('Database deletion error:', dbError)
-      return NextResponse.json(
-        { error: 'Failed to delete submission' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Submission deleted successfully'
-    })
 
   } catch (error) {
     console.error('Delete submission error:', error)
