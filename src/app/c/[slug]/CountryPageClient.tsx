@@ -137,13 +137,22 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
   const confirmDelete = async () => {
     if (!adminDeleteCode) return
 
-    // Determine if we're deleting a whole group
+    // Determine if we're deleting a whole group or single image
     const payload: { adminDeleteCode: string; submissionId?: number; groupKey?: string } = { adminDeleteCode }
     if (submissionToDelete) {
       // Find the group's key for this submission
       const group = groups.find(g => g.images.some(img => img.id === submissionToDelete))
       if (group) {
-        payload.groupKey = group.groupKey
+        // Check if this is a new grouped format (<countryId>/<batchId>/filename) or old single format
+        const firstImage = group.images[0]
+        const pathParts = firstImage.image_path.split('/')
+        if (pathParts.length >= 3) {
+          // New grouped format: use groupKey
+          payload.groupKey = group.groupKey
+        } else {
+          // Old single format: use submissionId for each image
+          payload.submissionId = submissionToDelete
+        }
       } else {
         payload.submissionId = submissionToDelete
       }
