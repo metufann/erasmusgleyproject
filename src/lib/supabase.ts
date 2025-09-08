@@ -15,6 +15,9 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 })
 
+// Realtime channel name for presence
+export const PRESENCE_CHANNEL = 'online-users'
+
 // Database types
 export interface Country {
   id: number

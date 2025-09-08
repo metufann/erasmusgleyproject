@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import CountryPageClient from './CountryPageClient'
 import { supabase } from '@/lib/supabase'
+import OnlineUsersWrapper from '../../OnlineUsersWrapper'
 
 async function getCountry(slug: string) {
   try {

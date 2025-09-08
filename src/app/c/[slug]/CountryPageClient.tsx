@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Country, Submission } from '@/lib/supabase'
+import OnlineUsersWrapper from '../../OnlineUsersWrapper'
 // import PhotoAlbum from 'react-photo-album'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
@@ -210,6 +211,11 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       <div className="container mx-auto px-4 pt-6 pb-8 relative z-10">
         {/* Clean Header */}
         <div className="text-center mb-6 sm:mb-8 mt-4">
+          {/* Online users badge - top right */}
+          <div className="flex justify-end mb-4">
+            <OnlineUsersWrapper />
+          </div>
+          
           <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6 gap-4 sm:gap-6">
             <div className="w-16 h-16 sm:w-20 sm:h-20 aspect-square relative shrink-0">
               {country.flag_svg_url ? (

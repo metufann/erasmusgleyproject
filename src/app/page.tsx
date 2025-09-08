@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import OnlineUsersWrapper from './OnlineUsersWrapper'
 
 async function getCountries() {
   try {
@@ -29,6 +30,11 @@ export default async function HomePage() {
       <div className="max-w-6xl mx-auto">
         {/* Hero Section */}
         <div className="text-center mb-8">
+          {/* Online users badge - top right */}
+          <div className="flex justify-end mb-4">
+            <OnlineUsersWrapper />
+          </div>
+          
           {/* Mobile: Vertical, Desktop: Horizontal */}
           <div className="mb-6">
             <img
