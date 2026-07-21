@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       if (uploadError) {
         console.error('Upload error:', uploadError)
         return NextResponse.json(
-          { error: 'Failed to upload image' },
+          { error: uploadError.message || 'Failed to upload image' },
           { status: 500 }
         )
       }
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
           .remove([fileName])
         
         return NextResponse.json(
-          { error: 'Failed to save submission' },
+          { error: dbError.message || 'Failed to save submission' },
           { status: 500 }
         )
       }
