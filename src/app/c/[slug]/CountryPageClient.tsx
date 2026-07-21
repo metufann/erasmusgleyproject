@@ -40,8 +40,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
     authorName: '',
     story: '',
     imageWidth: 0,
-    imageHeight: 0,
-    accessCode: ''
+    imageHeight: 0
   })
   // const [lightboxOpen, setLightboxOpen] = useState(false)
   // const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -70,7 +69,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
 
   const handleImageUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if ((uploadForm.images.length === 0 && !uploadForm.image) || !uploadForm.accessCode) return
+    if (uploadForm.images.length === 0 && !uploadForm.image) return
 
     setIsUploading(true)
     setError('')
@@ -85,7 +84,6 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       formData.append('caption', uploadForm.caption)
       formData.append('authorName', uploadForm.authorName)
       formData.append('story', uploadForm.story)
-      formData.append('accessCode', uploadForm.accessCode)
       formData.append('countrySlug', country.slug)
 
       const response = await fetch('/api/upload', {
@@ -96,7 +94,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
       const data = await response.json()
 
       if (data.success) {
-        setUploadForm({ image: null, images: [], caption: '', authorName: '', story: '', imageWidth: 0, imageHeight: 0, accessCode: '' })
+        setUploadForm({ image: null, images: [], caption: '', authorName: '', story: '', imageWidth: 0, imageHeight: 0 })
         fetchGallery() // Refresh gallery
         setError('')
         setUploadModalOpen(false) // Close modal on success
@@ -461,24 +459,6 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                 />
               </div>
 
-              {/* Access Code Field */}
-              <div>
-                <label className="block text-sm font-medium text-rose-700 mb-2">
-                  Access Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={uploadForm.accessCode}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, accessCode: e.target.value }))}
-                  className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                  placeholder="Enter your access code to upload..."
-                  required
-                />
-                <p className="text-rose-500 text-xs mt-1">
-                  Access code is required to upload content
-                </p>
-              </div>
-
               {/* Error Message */}
               {error && (
                 <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">
@@ -497,7 +477,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading || (!uploadForm.image && uploadForm.images.length === 0) || !uploadForm.accessCode}
+                  disabled={isUploading || (!uploadForm.image && uploadForm.images.length === 0)}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-medium hover:from-rose-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   {isUploading ? '📤 Uploading...' : '📤 Upload Activity'}

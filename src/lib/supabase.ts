@@ -41,13 +41,3 @@ export interface Submission {
   approved: boolean
   created_at: string
 }
-
-export interface CountryAccessCode {
-  id: number
-  country_id: number
-  code_hash: string
-  expires_at: string | null
-  max_uses: number | null
-  used_count: number
-  created_at: string
-} 

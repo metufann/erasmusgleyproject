@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createHash } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,12 +14,11 @@ export async function POST(request: NextRequest) {
     const caption = formData.get('caption') as string
     const authorName = formData.get('authorName') as string
     const story = formData.get('story') as string
-    const accessCode = formData.get('accessCode') as string
     const countrySlug = formData.get('countrySlug') as string
 
-    if (files.length === 0 || !accessCode || !countrySlug) {
+    if (files.length === 0 || !countrySlug) {
       return NextResponse.json(
-        { error: 'At least one image file, access code, and country slug are required' },
+        { error: 'At least one image file and country slug are required' },
         { status: 400 }
       )
     }
@@ -37,47 +35,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Country not found or inactive' },
         { status: 404 }
-      )
-    }
-
-    // Verify access code for this country
-    const { data: accessCodes, error: codesError } = await supabaseAdmin
-      .from('country_access_codes')
-      .select('*')
-      .eq('country_id', country.id)
-
-    if (codesError) {
-      return NextResponse.json(
-        { error: 'Failed to fetch access codes' },
-        { status: 500 }
-      )
-    }
-
-    // Check if access code matches
-    let validCode = null
-    for (const code of accessCodes || []) {
-      const hashedInput = createHash('sha1').update(accessCode).digest('hex')
-      
-      if (hashedInput === code.code_hash) {
-        // Check expiration
-        if (code.expires_at && new Date(code.expires_at) < new Date()) {
-          continue // Code expired
-        }
-        
-        // Check usage limit
-        if (code.max_uses && code.used_count >= code.max_uses) {
-          continue // Usage limit exceeded
-        }
-        
-        validCode = code
-        break
-      }
-    }
-
-    if (!validCode) {
-      return NextResponse.json(
-        { error: 'Invalid or expired access code' },
-        { status: 401 }
       )
     }
 
@@ -162,12 +119,6 @@ export async function POST(request: NextRequest) {
       uploaded.push({ imagePath: fileName, publicUrl })
     }
 
-    // Increment usage count for the access code (once per submission batch)
-    await supabaseAdmin
-      .from('country_access_codes')
-      .update({ used_count: validCode.used_count + 1 })
-      .eq('id', validCode.id)
-
     return NextResponse.json({
       success: true,
       uploaded,
@@ -182,4 +133,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
