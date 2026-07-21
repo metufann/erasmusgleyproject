@@ -15,6 +15,11 @@ CREATE POLICY "Public upload to submissions bucket"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'submissions');
 
+DROP POLICY IF EXISTS "Public delete submissions" ON submissions;
+CREATE POLICY "Public delete submissions"
+  ON submissions FOR DELETE
+  USING (true);
+
 DROP POLICY IF EXISTS "Public delete from submissions bucket" ON storage.objects;
 CREATE POLICY "Public delete from submissions bucket"
   ON storage.objects FOR DELETE

@@ -47,7 +47,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [submissionToDelete, setSubmissionToDelete] = useState<number | null>(null)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [adminDeleteCode, setAdminDeleteCode] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchGallery = useCallback(async () => {
     try {
@@ -134,28 +134,24 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
   }
 
   const confirmDelete = async () => {
-    if (!adminDeleteCode) return
+    if (!submissionToDelete) return
 
-    // Determine if we're deleting a whole group or single image
-    const payload: { adminDeleteCode: string; submissionId?: number; groupKey?: string } = { adminDeleteCode }
-    if (submissionToDelete) {
-      // Find the group's key for this submission
-      const group = groups.find(g => g.images.some(img => img.id === submissionToDelete))
-      if (group) {
-        // Check if this is a new grouped format (<countryId>/<batchId>/filename) or old single format
-        const firstImage = group.images[0]
-        const pathParts = firstImage.image_path.split('/')
-        if (pathParts.length >= 3) {
-          // New grouped format: use groupKey
-          payload.groupKey = group.groupKey
-        } else {
-          // Old single format: use submissionId for each image
-          payload.submissionId = submissionToDelete
-        }
+    const payload: { submissionId?: number; groupKey?: string } = {}
+    const group = groups.find(g => g.images.some(img => img.id === submissionToDelete))
+    if (group) {
+      const firstImage = group.images[0]
+      const pathParts = firstImage.image_path.split('/')
+      if (pathParts.length >= 3) {
+        payload.groupKey = group.groupKey
       } else {
         payload.submissionId = submissionToDelete
       }
+    } else {
+      payload.submissionId = submissionToDelete
     }
+
+    setIsDeleting(true)
+    setError('')
 
     try {
       const response = await fetch('/api/delete-submission', {
@@ -183,12 +179,13 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
         setError('')
         setDeleteConfirmOpen(false)
         setSubmissionToDelete(null)
-        setAdminDeleteCode('')
       } else {
         setError(data.error || 'Failed to delete submission')
       }
     } catch {
       setError('Failed to delete submission')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -490,44 +487,30 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirmOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 max-w-md mx-4">
-            <h3 className="text-xl font-bold text-white mb-4">🗑️ Delete Photo</h3>
-            <p className="text-gray-300 mb-4">
-              Are you sure you want to delete this photo? This action cannot be undone.
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-xl font-bold text-rose-800 mb-4">🗑️ Delete Activity</h3>
+            <p className="text-rose-700 mb-6">
+              Are you sure you want to delete this activity? This action cannot be undone.
             </p>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Admin Delete Code <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="password"
-                value={adminDeleteCode}
-                onChange={(e) => setAdminDeleteCode(e.target.value)}
-                className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                placeholder="Enter admin delete code..."
-                required
-              />
-            </div>
-            
+
             <div className="flex space-x-3">
               <button
                 onClick={() => {
                   setDeleteConfirmOpen(false)
                   setSubmissionToDelete(null)
-                  setAdminDeleteCode('')
                 }}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                disabled={!adminDeleteCode}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
               >
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
