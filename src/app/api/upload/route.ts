@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get country details from database
-    const { data: country, error: countryError } = await supabaseAdmin
+    const { data: country, error: countryError } = await supabase
       .from('countries')
       .select('id, slug, name, is_active')
       .eq('slug', countrySlug)
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       const fileName = `${country.id}/${batchId}/${timestamp}-${randomSuffix}.${fileExtension}`
 
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabaseAdmin.storage
+      const { error: uploadError } = await supabase.storage
         .from('submissions')
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -87,12 +87,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Get public URL
-      const { data: { publicUrl } } = supabaseAdmin.storage
+      const { data: { publicUrl } } = supabase.storage
         .from('submissions')
         .getPublicUrl(fileName)
 
       // Store metadata in database
-      const { error: dbError } = await supabaseAdmin
+      const { error: dbError } = await supabase
         .from('submissions')
         .insert({
           country_id: country.id,
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       if (dbError) {
         console.error('Database error:', dbError)
         // Try to delete uploaded file if database insert fails
-        await supabaseAdmin.storage
+        await supabase.storage
           .from('submissions')
           .remove([fileName])
         
