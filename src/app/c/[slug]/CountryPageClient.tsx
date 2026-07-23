@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Country, Submission } from '@/lib/supabase'
 import OnlineUsersWrapper from '../../OnlineUsersWrapper'
-// import PhotoAlbum from 'react-photo-album'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import { Fullscreen, Zoom, Download } from 'yet-another-react-lightbox/plugins'
@@ -24,30 +23,11 @@ interface GalleryGroup {
   caption: string | null
   author_name: string | null
   story: string | null
-  created_at: string
   images: SubmissionWithUrl[]
 }
 
 export default function CountryPageClient({ country }: CountryPageClientProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
   const [groups, setGroups] = useState<GalleryGroup[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadForm, setUploadForm] = useState({
-    image: null as File | null, // first selected file for preview/meta
-    images: [] as File[],
-    caption: '',
-    authorName: '',
-    story: '',
-    imageWidth: 0,
-    imageHeight: 0
-  })
-  // const [lightboxOpen, setLightboxOpen] = useState(false)
-  // const [lightboxIndex, setLightboxIndex] = useState(0)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [submissionToDelete, setSubmissionToDelete] = useState<number | null>(null)
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchGallery = useCallback(async () => {
     try {
@@ -62,134 +42,10 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
     }
   }, [country.id])
 
-  // Load gallery immediately on mount (no authentication needed)
   useEffect(() => {
     fetchGallery()
   }, [fetchGallery])
 
-  const handleImageUpload = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (uploadForm.images.length === 0 && !uploadForm.image) return
-
-    setIsUploading(true)
-    setError('')
-
-    try {
-      const formData = new FormData()
-      if (uploadForm.images.length > 0) {
-        uploadForm.images.forEach(file => formData.append('images', file))
-      } else if (uploadForm.image) {
-        formData.append('image', uploadForm.image)
-      }
-      formData.append('caption', uploadForm.caption)
-      formData.append('authorName', uploadForm.authorName)
-      formData.append('story', uploadForm.story)
-      formData.append('countrySlug', country.slug)
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setUploadForm({ image: null, images: [], caption: '', authorName: '', story: '', imageWidth: 0, imageHeight: 0 })
-        fetchGallery() // Refresh gallery
-        setError('')
-        setUploadModalOpen(false) // Close modal on success
-      } else {
-        setError(data.error || 'Upload failed')
-      }
-    } catch {
-      setError('Upload failed')
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length > 0) {
-      const first = files[0]
-      const img = new Image()
-      img.onload = () => {
-        setUploadForm(prev => ({
-          ...prev,
-          image: first,
-          images: files,
-          imageWidth: img.width,
-          imageHeight: img.height
-        }))
-      }
-      img.src = URL.createObjectURL(first)
-    } else {
-      setUploadForm(prev => ({ ...prev, image: null, images: [], imageWidth: 0, imageHeight: 0 }))
-    }
-  }
-
-  const handleDeleteSubmission = async (submissionId: number) => {
-    setSubmissionToDelete(submissionId)
-    setDeleteConfirmOpen(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!submissionToDelete) return
-
-    const payload: { submissionId?: number; groupKey?: string } = {}
-    const group = groups.find(g => g.images.some(img => img.id === submissionToDelete))
-    if (group) {
-      const firstImage = group.images[0]
-      const pathParts = firstImage.image_path.split('/')
-      if (pathParts.length >= 3) {
-        payload.groupKey = group.groupKey
-      } else {
-        payload.submissionId = submissionToDelete
-      }
-    } else {
-      payload.submissionId = submissionToDelete
-    }
-
-    setIsDeleting(true)
-    setError('')
-
-    try {
-      const response = await fetch('/api/delete-submission', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        if (payload.groupKey) {
-          // Remove entire group
-          setGroups(prev => prev.filter(g => g.groupKey !== payload.groupKey))
-        } else if (submissionToDelete) {
-          // Fallback: remove single image
-          setGroups(prev => prev
-            .map(group => ({
-              ...group,
-              images: group.images.filter(img => img.id !== submissionToDelete)
-            }))
-            .filter(group => group.images.length > 0)
-          )
-        }
-        setError('')
-        setDeleteConfirmOpen(false)
-        setSubmissionToDelete(null)
-      } else {
-        setError(data.error || 'Failed to delete submission')
-      }
-    } catch {
-      setError('Failed to delete submission')
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  // Lightbox state per group
   const [groupLightboxOpen, setGroupLightboxOpen] = useState(false)
   const [activeGroupIndex, setActiveGroupIndex] = useState<number>(0)
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0)
@@ -234,7 +90,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
           </div>
           <div className="w-32 sm:w-40 h-1 bg-gradient-to-r from-rose-400 to-orange-400 mx-auto rounded-full mb-3 sm:mb-4"></div>
           <p className="text-rose-600 font-medium text-base sm:text-lg md:text-xl max-w-2xl mx-auto px-4">
-            Welcome to the photo exhibition! View the gallery below and contribute your own photos.
+            Welcome to the photo exhibition! Browse the gallery below.
           </p>
         </div>
 
@@ -249,7 +105,7 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
             <div className="text-center py-12">
               <div className="text-gray-500 text-6xl mb-4">📸</div>
               <p className="text-gray-400 text-lg mb-2">No photos uploaded yet.</p>
-              <p className="text-gray-500">Be the first to share a photo from {country.name}!</p>
+              <p className="text-gray-500">Check back soon for photos from {country.name}!</p>
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
@@ -290,42 +146,14 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
                     </p>
                   </div>
 
-                  {/* Meta + Delete */}
-                  <div className="flex items-center justify-between text-sm bg-white/60 p-3 rounded-xl border border-rose-100">
-                    <div className="flex items-center space-x-4">
-                      <span className="text-rose-700 font-medium">📸 By: {group.author_name || 'Anonymous'}</span>
-                      <span className="text-rose-600">📅 {new Date(group.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        // delete the first image's submission as representative (or adapt to delete all in group)
-                        const firstId = group.images[0]?.id
-                        if (firstId) handleDeleteSubmission(firstId)
-                      }}
-                      className="text-red-500 hover:text-red-600 transition-colors duration-200 px-3 py-1 rounded-lg hover:bg-red-100 border border-red-200"
-                      title="Delete this post"
-                    >
-                      🗑️ Delete
-                    </button>
+                  {/* Meta */}
+                  <div className="flex items-center text-sm bg-white/60 p-3 rounded-xl border border-rose-100">
+                    <span className="text-rose-700 font-medium">📸: {group.author_name || 'Anonymous'}</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-
-        {/* Add Content Section - Simple button to open modal */}
-        <div className="text-center mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-rose-200 p-6 max-w-md mx-auto">
-            <h3 className="text-lg font-semibold text-rose-700 mb-3">Want to contribute?</h3>
-            
-            <button
-              onClick={() => setUploadModalOpen(true)}
-              className="w-full bg-gradient-to-r from-rose-500 to-orange-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-rose-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              📸 Add Content
-            </button>
-          </div>
         </div>
         
         {/* Footer */}
@@ -352,170 +180,6 @@ export default function CountryPageClient({ country }: CountryPageClientProps) {
           carousel={{ finite: true }}
         />
       )}
-
-      {/* Upload Modal */}
-      {uploadModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/95 backdrop-blur-md border border-white/50 rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent mb-2">
-                📸 Upload Your Activity
-              </h3>
-              <div className="w-20 h-1 bg-gradient-to-r from-rose-400 to-orange-400 mx-auto rounded-full"></div>
-            </div>
-
-            {/* Upload Form */}
-            <form onSubmit={handleImageUpload} className="space-y-6">
-              {/* File Upload Area */}
-              <div className="text-center">
-                <div className="border-2 border-dashed border-rose-200 rounded-2xl p-8 hover:border-rose-300 transition-colors duration-300">
-                  <input
-                    type="file"
-                    id="image"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    required
-                  />
-                  <label htmlFor="image" className="cursor-pointer">
-                    <div className="text-6xl mb-4">📁</div>
-                    <p className="text-rose-600 font-medium text-lg mb-2">
-                      {uploadForm.images.length > 0
-                        ? `${uploadForm.images.length} file${uploadForm.images.length > 1 ? 's' : ''} selected`
-                        : 'Click to select images'}
-                    </p>
-                    {uploadForm.image && (
-                      <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3">
-                        <p className="text-rose-700 text-sm font-medium">
-                          📏 File Type: {uploadForm.image.name.split('.').pop()?.toUpperCase()}
-                        </p>
-                        <p className="text-rose-600 text-sm">
-                          📊 File Size: {(uploadForm.image.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                        <p className="text-rose-600 text-sm">
-                          📐 Dimensions: {uploadForm.imageWidth && uploadForm.imageHeight ? 
-                            `${uploadForm.imageWidth} × ${uploadForm.imageHeight} px` : 
-                            'Loading...'
-                          }
-                        </p>
-                        {uploadForm.images.length > 1 && (
-                          <p className="text-rose-500 text-xs mt-1">
-                            Plus {uploadForm.images.length - 1} more file(s)
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    <p className="text-rose-400 text-sm">
-                      JPG, PNG, WebP up to 5MB each
-                    </p>
-                  </label>
-                </div>
-              </div>
-
-              {/* Form Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-rose-700 mb-2">
-                    Learning Objectives
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadForm.authorName}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, authorName: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Enter learning objectives..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-rose-700 mb-2">
-                    Activity Name
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadForm.caption}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, caption: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Enter activity name..."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-rose-700 mb-2">
-                  Activity Details
-                </label>
-                <textarea
-                  value={uploadForm.story || ''}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, story: e.target.value }))}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-rose-800 placeholder-rose-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-300 resize-none"
-                  placeholder="Describe the activity details..."
-                />
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">
-                  {error}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setUploadModalOpen(false)}
-                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUploading || (!uploadForm.image && uploadForm.images.length === 0)}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-medium hover:from-rose-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                >
-                  {isUploading ? '📤 Uploading...' : '📤 Upload Activity'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {deleteConfirmOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-xl font-bold text-rose-800 mb-4">🗑️ Delete Activity</h3>
-            <p className="text-rose-700 mb-6">
-              Are you sure you want to delete this activity? This action cannot be undone.
-            </p>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setDeleteConfirmOpen(false)
-                  setSubmissionToDelete(null)
-                }}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
-} 
+}

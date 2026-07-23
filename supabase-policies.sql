@@ -1,5 +1,5 @@
--- Run this in Supabase SQL Editor to allow public uploads (no access code).
--- Safe to re-run: drops and recreates the insert/delete policies.
+-- Run this in Supabase SQL Editor (required for upload + delete to persist).
+-- Safe to re-run: drops and recreates policies.
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('submissions', 'submissions', true)

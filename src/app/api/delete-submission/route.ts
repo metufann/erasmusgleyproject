@@ -27,7 +27,14 @@ export async function DELETE(request: NextRequest) {
         )
       }
 
-      const paths = (rows || []).map(r => r.image_path).filter(Boolean)
+      if (!rows?.length) {
+        return NextResponse.json(
+          { error: 'Post not found' },
+          { status: 404 }
+        )
+      }
+
+      const paths = rows.map(r => r.image_path).filter(Boolean)
       if (paths.length > 0) {
         const { error: storageError } = await supabase.storage
           .from('submissions')
@@ -37,10 +44,11 @@ export async function DELETE(request: NextRequest) {
         }
       }
 
-      const { error: dbError } = await supabase
+      const { data: deletedRows, error: dbError } = await supabase
         .from('submissions')
         .delete()
         .like('image_path', `${prefix}%`)
+        .select('id')
 
       if (dbError) {
         console.error('Database deletion error:', dbError)
@@ -50,7 +58,21 @@ export async function DELETE(request: NextRequest) {
         )
       }
 
-      return NextResponse.json({ success: true, message: 'Post deleted successfully' })
+      if (!deletedRows?.length) {
+        return NextResponse.json(
+          {
+            error:
+              'Delete was blocked by database permissions. Run supabase-policies.sql in the Supabase SQL Editor.',
+          },
+          { status: 403 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Post deleted successfully',
+        deletedCount: deletedRows.length,
+      })
     }
 
     const { data: submission, error: fetchError } = await supabase
@@ -75,10 +97,11 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    const { error: dbError } = await supabase
+    const { data: deletedRows, error: dbError } = await supabase
       .from('submissions')
       .delete()
       .eq('id', submissionId)
+      .select('id')
 
     if (dbError) {
       console.error('Database deletion error:', dbError)
@@ -88,7 +111,21 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ success: true, message: 'Submission deleted successfully' })
+    if (!deletedRows?.length) {
+      return NextResponse.json(
+        {
+          error:
+            'Delete was blocked by database permissions. Run supabase-policies.sql in the Supabase SQL Editor.',
+        },
+        { status: 403 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Submission deleted successfully',
+      deletedCount: deletedRows.length,
+    })
   } catch (error) {
     console.error('Delete submission error:', error)
     return NextResponse.json(
